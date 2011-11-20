@@ -3,6 +3,10 @@ html
   head
     link(href='/stylesheets/style.css', rel='stylesheet')
     script(src='http://code.jquery.com/jquery-1.6.1.min.js')
+    script(src='audio.js')
+    script(src='jsfx.js')
+    script(src='jsfxlib.js')
+    script(src='jsfxgui.js')
     script(src='/socket.io/socket.io.js')
     script
       // socket.io specific code
@@ -23,7 +27,12 @@ html
         }
       });
 
-      socket.on('user message', message);
+      socket.on('user message', function(from, msg) {
+        console.log(from, msg);
+        var sound = jsfxlib.createWave(JSON.parse(msg));
+        sound.play();
+        message(from, msg);
+      });
       socket.on('reconnect', function () {
         $('#lines').remove();
         message('System', 'Reconnected to the server');
@@ -46,7 +55,7 @@ html
         $('#set-nickname').submit(function (ev) {
           socket.emit('nickname', $('#nick').val(), function (set) {
             if (!set) {
-              clear();
+              $('#control').css('visibility', 'visible');
               return $('#chat').addClass('nickname-set');
             }
             $('#nickname-err').css('visibility', 'visible');
@@ -55,15 +64,27 @@ html
         });
 
         $('#send-message').submit(function () {
-          message('me', $('#message').val());
-          socket.emit('user message', $('#message').val());
-          clear();
-          $('#lines').get(0).scrollTop = 10000000;
+          jsfxgui.play();
           return false;
         });
 
         function clear () {
           $('#message').val('').focus();
+        };
+
+        // from http://egonelbre.com/js/jsfx/
+        jsfxgui.createSampleGenerators('sample-generators');
+        jsfxgui.createConfigurationPanel('config-panel');
+        jsfxgui.initField('message');
+        jsfxgui.paramsToField();
+        jsfxgui.onvaluemodified = function() {
+          jsfxgui.play();
+        };
+        jsfxgui.onplay = function() {
+          this.paramsToField();
+          message('me', $('#message').val());
+          socket.emit('user message', $('#message').val());
+          $('#lines').get(0).scrollTop = 10000000;
         };
       });
   body
@@ -79,5 +100,9 @@ html
         #nicknames
         #lines
       form#send-message
-        input#message
+        input#message(disabled)
         button Send
+      #control
+        span#sample-generators
+        button(onclick="jsfxgui.randomize()") Randomize
+    #config-panel
